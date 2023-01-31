@@ -7,9 +7,14 @@ principal owner [
 
 owner -> analyst: [owner_public_key]
 
+principal device [
+    knows private device_private_key
+    device_public_key = G^device_private_key
+]
+
+device -> ss: [device_public_key]
 
 principal ss [
-    knows private enc_data
     knows private ss_private_key
     ss_public_key = G^ss_private_key
 ]
@@ -25,74 +30,27 @@ analyst -> ss: [analyst_public_key]
 
 analyst -> owner: [analyst_public_key]
 
-
-principal analyst[
-    //generates analyst_nonce
-    generates key_request
-    //analyst_proof = SIGN(analyst_private_key, HASH(CONCAT(analyst_nonce, key_request)))
-    analyst_proof = SIGN(analyst_private_key, HASH(key_request))
+principal device[
+    //generates device_nonce
+    generates data
+    enc_data = PKE_ENC(device_public_key, data)
+    //device_proof = SIGN(device_private_key, HASH(CONCAT(device_nonce, enc_data)))
+    device_proof = SIGN(device_private_key, HASH(enc_data))
 ]
 
-//analyst -> owner: analyst_nonce, key_request, analyst_proof
-analyst -> owner:  key_request, analyst_proof
+//device -> ss: device_nonce, enc_data, device_proof
+device -> ss:  enc_data, device_proof
 
-
-principal owner[
-    //analyst_valid = SIGNVERIF(analyst_public_key, HASH(CONCAT(analyst_nonce, key_request)), analyst_proof)?
-    analyst_valid = SIGNVERIF(analyst_public_key, HASH(key_request), analyst_proof)?
-    generates fdk
-    enc_fdk = PKE_ENC(analyst_public_key, fdk)
-    //generates owner_nonce
-    //owner_proof = SIGN(owner_private_key, HASH(CONCAT(owner_nonce, enc_fdk)))
-    owner_proof = SIGN(owner_private_key, HASH(enc_fdk))
-
-]
-
-//owner -> analyst: owner_nonce, enc_fdk, owner_proof
-owner -> analyst: enc_fdk, owner_proof
-
-principal analyst[
-  //  owner_valid = SIGNVERIF(owner_public_key, HASH(CONCAT(owner_nonce, enc_fdk)), owner_proof)?
-    owner_valid = SIGNVERIF(owner_public_key, HASH(enc_fdk), owner_proof)?
-    //generates analyst_nonce_2
-    generates data_request
-    //analyst_proof_2 = SIGN(analyst_private_key, HASH(CONCAT(analyst_nonce_2, data_request)))
-    analyst_proof_2 = SIGN(analyst_private_key, HASH( data_request))
-
-]
-
-//analyst -> ss: analyst_nonce_2, data_request, analyst_proof_2
-analyst -> ss: data_request, analyst_proof_2
 
 principal ss[
-    //analyst_valid_2 = SIGNVERIF(analyst_public_key, HASH(CONCAT(analyst_nonce_2, data_request)), analyst_proof_2)?
-    analyst_valid_2 = SIGNVERIF(analyst_public_key, HASH(data_request), analyst_proof_2)?
-
-    generates ss_nonce
-    ss_proof = SIGN(ss_private_key, HASH(CONCAT(ss_nonce, enc_data)))
-    //ss_proof = SIGN(ss_private_key, HASH(enc_data))
+    //device_valid = SIGNVERIF(device_public_key, HASH(CONCAT(device_nonce, enc_data)) ,device_proof)?
+    device_valid = SIGNVERIF(device_public_key, HASH( enc_data) ,device_proof)?
 
 ]
 
-ss -> analyst: ss_nonce, enc_data, ss_proof
-//ss -> analyst:  enc_data, ss_proof
-
-
-principal analyst[
-    ss_valid = SIGNVERIF(ss_public_key, HASH(CONCAT(ss_nonce, enc_data)), ss_proof)?
-    //ss_valid = SIGNVERIF(ss_public_key, HASH(enc_data), ss_proof)?
-
-]
-
-queries [
-    //freshness? enc_data
-    //confidentiality? data
-    //authentication? device -> ss: device_proof
-    //freshness? device_proof
-    authentication? ss -> analyst: ss_proof
-    freshness? ss_proof
-    confidentiality? fdk
-    freshness? fdk
-    authentication? owner -> analyst: owner_proof
-    //confidentiality? data
+queries[
+    confidentiality? data
+    freshness? enc_data
+    freshness? device_proof
+    authentication? device -> ss: device_proof
 ]
